@@ -26,7 +26,7 @@ export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: u
 
 interface PostgresImpl {
 	use: <T>(fn: (sql: InstanceType<typeof SQL>) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;
-	first: <T>(fn: (sql: InstanceType<typeof SQL>) => Promise<T[]>) => Effect.Effect<T, PostgresError, never>;
+	first: <T extends any[]>(fn: (sql: InstanceType<typeof SQL>) => PromiseLike<T>) => Effect.Effect<T[number], PostgresError, never>;
 }
 
 export class Postgres extends Context.Tag('Postgres')<Postgres, PostgresImpl>() {}
