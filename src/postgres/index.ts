@@ -21,8 +21,11 @@
  */
 import { SQL } from 'bun';
 import { Context, Data, Effect } from 'effect';
+import type { HttpStatusError } from '../error';
 
-export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown; message?: string }> {}
+export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+	get statusCode() { return 500 as const; }
+}
 
 interface PostgresImpl {
 	use: <T>(fn: (sql: InstanceType<typeof SQL>) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;

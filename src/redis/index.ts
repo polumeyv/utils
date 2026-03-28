@@ -21,8 +21,11 @@
  */
 import { RedisClient, type RedisOptions } from 'bun';
 import { Context, Data, Effect } from 'effect';
+import type { HttpStatusError } from '../error';
 
-export class RedisError extends Data.TaggedError('RedisError')<{ cause?: unknown; message?: string }> {}
+export class RedisError extends Data.TaggedError('RedisError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+	get statusCode() { return 503 as const; }
+}
 
 interface RedisImpl {
 	use: <T>(fn: (client: InstanceType<typeof RedisClient>) => T) => Effect.Effect<Awaited<T>, RedisError, never>;

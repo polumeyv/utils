@@ -8,8 +8,9 @@
  */
 import StripeSDK from 'stripe';
 import { Context, Data, Effect } from 'effect';
+import type { HttpStatusError } from '../error';
 
-export class StripeError extends Data.TaggedError('StripeError')<{ cause?: unknown; message?: string }> {
+export class StripeError extends Data.TaggedError('StripeError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
 	private get err() {
 		return this.cause as StripeSDK.errors.StripeError;
 	}
