@@ -21,7 +21,7 @@
 		"./redis": { "types": "./src/redis.ts", "default": "./src/redis.ts" },
 		"./ses": { "types": "./src/ses.ts", "default": "./src/ses.ts" },
 		"./stripe": { "types": "./src/stripe.ts", "default": "./src/stripe.ts" },
-		"./error": { "types": "./src/error.ts", "default": "./src/error.ts" },
+		"./error": { "types": "./src/error/index.ts", "default": "./src/error/index.ts" },
 		"./rate-limit": { "types": "./src/rate-limit.ts", "default": "./src/rate-limit.ts" }
 	},
 	"peerDependencies": {
