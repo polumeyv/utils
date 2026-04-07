@@ -6,12 +6,12 @@
  * Exports:
  *  - `Ses`      — Context tag
  *  - `SesError` — Tagged error
- *  - `makeSes`  — Factory: `(enabled: string) => Effect<Ses>` (when not `'true'`, emails are logged instead of sent)
+ *  - `makeSes`  — Factory: `(enabled: boolean) => Effect<Ses>` (when `false`, emails are logged instead of sent)
  *
  * @example
  * ```ts
  * // App layer construction
- * Layer.effect(Ses, makeSes(EMAIL_ENABLED))
+ * Layer.effect(Ses, makeSes(!dev))
  *
  * // Usage in a service
  * const ses = yield* Ses;
@@ -41,11 +41,11 @@ interface SesImpl {
 
 export class Ses extends Context.Tag('Ses')<Ses, SesImpl>() {}
 
-export const makeSes = (enabled: string) =>
+export const makeSes = (enabled: boolean) =>
 	Effect.map(Effect.sync(() => new SESv2Client()), (client) =>
 		Ses.of({
 			sendEmail: ({ from, to, subject, html, text, attachments }) =>
-				enabled === 'true'
+				enabled
 					? Effect.tryPromise({
 							try: () =>
 								client.send(

@@ -34,8 +34,9 @@ export function reportError(opts: {
 
 	fetch(`${api}/issues?state=open&labels=auto-error&per_page=100`, { headers })
 		.then((r) => r.json())
-		.then((issues: Array<{ title: string; number: number }>) => {
-			const existing = issues.find((i) => i.title === title);
+		.then((issues: unknown) => {
+			if (!Array.isArray(issues)) return;
+			const existing = (issues as Array<{ title: string; number: number }>).find((i) => i.title === title);
 			return existing
 				? fetch(`${api}/issues/${existing.number}/comments`, {
 						method: 'POST',
