@@ -29,10 +29,12 @@ export class S3Error extends Data.TaggedError('S3Error')<{ cause?: unknown; mess
 }
 
 export interface S3Config {
-	accessKeyId: string;
-	secretAccessKey: string;
 	bucket: string;
 	region: string;
+	// Omit to let Bun's S3Client pick up creds from the AWS chain
+	// (env → ~/.aws/credentials → EC2 instance profile / IMDS).
+	accessKeyId?: string;
+	secretAccessKey?: string;
 }
 
 interface S3Impl {
