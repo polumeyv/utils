@@ -6,9 +6,9 @@ export const Domain = Schema.String.pipe(Schema.pattern(/^(?:[a-z0-9](?:[a-z0-9-
 
 export const getHostname = (url: string) => new URL(url.includes('://') ? url : `https://${url}`).hostname;
 
-export const Email = Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/));
+export const Email = Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: () => 'Please enter a valid email address' }));
 
-const Name = (field: string) =>
+export const Name = (field: string) =>
 	Schema.String.pipe(
 		Schema.minLength(1, { message: () => `${field} is required` }),
 		Schema.maxLength(60, { message: () => `${field} must be less than 60 characters` }),
