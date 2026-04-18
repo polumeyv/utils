@@ -14,7 +14,7 @@ import type { HttpStatusError } from './error';
 
 export class StripeError extends Data.TaggedError('StripeError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
 	private get err() {
-		return this.cause as StripeSDK.errors.StripeError;
+		return this.cause as InstanceType<typeof StripeSDK.errors.StripeError>;
 	}
 	get statusCode() {
 		return this.err?.statusCode ?? 500;
