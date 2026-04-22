@@ -1,6 +1,6 @@
 {
 	"name": "@polumeyv/utils",
-	"version": "0.1.8",
+	"version": "0.1.10",
 	"description": "Effect-based infrastructure clients for Bun applications",
 	"license": "MIT",
 	"publishConfig": {
@@ -37,10 +37,14 @@
 		"./public/types": {
 			"types": "./src/public/types/index.ts",
 			"default": "./src/public/types/index.ts"
+		},
+		"./public/types/db": {
+			"types": "./src/public/types/db/index.ts",
+			"default": "./src/public/types/db/index.ts"
 		}
 	},
 	"peerDependencies": {
-		"effect": "^3.21.0"
+		"effect": "^3.19.19"
 	},
 	"dependencies": {
 		"@aws-sdk/client-sesv2": "^3.1024.0",

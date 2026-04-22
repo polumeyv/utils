@@ -1,14 +1,7 @@
 const reported = new Set<string>();
 setInterval(() => reported.clear(), 5 * 60 * 1000);
 
-export function reportError(opts: {
-	repo: string;
-	token: string;
-	error: unknown;
-	route: string | null;
-	url: string;
-	status: number;
-}) {
+export function reportError(opts: { repo: string; token: string; error: unknown; route: string | null; url: string; status: number }) {
 	if (opts.status === 404) return;
 	const id = Bun.randomUUIDv7();
 	const err = opts.error instanceof Error ? opts.error : new Error(String(opts.error));
