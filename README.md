@@ -1,49 +1,71 @@
-# @polumeyv/utils
+# @polumeyv/lib
 
-Effect-based infrastructure clients for Bun applications. Each client exports a Context tag and a factory function — the consuming app reads its own config and constructs layers.
+Effect-based infrastructure + auth library for Bun applications. Each module exports a `Context.Tag` (or `Effect.Service`) and a factory — the consuming app reads its own config and composes layers.
 
-## Clients
+## Modules
 
-- `@polumeyv/utils/postgres` — Bun-native SQL connection pool (scoped)
-- `@polumeyv/utils/redis` — Bun-native Redis connection (scoped)
-- `@polumeyv/utils/stripe` — Stripe API + webhook verification
-- `@polumeyv/utils/ses` — AWS SES v2 email (with dev mode logging)
+### Server (`@polumeyv/lib/server`)
+- `postgres` — Bun-native SQL connection pool (scoped)
+- `redis` — Bun-native Redis connection (scoped)
+- `stripe` — Stripe API + webhook verification
+- `ses` — AWS SES v2 email (with dev-mode logging)
+- `sms` — Telnyx SMS (with dev-mode logging)
+- `s3` — Bun-native S3 client
+- `session` — `push`/`peek`/`pop`/`delete` over Redis
+- `crypto` — `encryptSecret`/`decryptSecret` (AES-256-GCM, `enc:v1:` prefix)
 
-## Usage
+### Auth (`@polumeyv/lib/auth/server`)
+- `Jwt` + `JwtConfig` — Ed25519 JWT signing/verification, refresh-token rotation
+- `OtpService` + `OtpAlerts` — email-OTP flow with rate-limit + progressive lockout (decisions in `otp.policy`, glue in `otp.service`)
+- `PasskeyService` + `PasskeyConfig` — WebAuthn registration/authentication
+- `OAuthAccountStore` — sole writer to `oidc_accounts`; row schema seals at-rest token encryption via `EncryptedString` codec
+- `OAuthProviderRegistry` + `OAuthProviderResolver` — registered OAuth providers + cached `openid-client` `Configuration`
+- `OidcAuthFlow` — authorize-URL build + callback exchange + signup/linking sessions; composes provider resolver + account store
+- `OAuthTokenVault` — `getValidAccessToken(sub, provider)`; refreshes via `refreshTokenGrant` + persists; consumed by downstream apps that call third-party APIs (e.g. Google Calendar)
+- `RiscService` — Google Cross-Account Protection event receiver (`process` decodes, `dispatchToStore` applies events to `OAuthAccountStore`)
+- `OAuth2Service` + `OAuth2ClientRegistry` — OAuth2 server-side flow for downstream consumer apps
+- `BaseUserRepository` — `users` table read/write
+- `AuthConfig` + `makeAuthConfig` — TTLs, lockout schedule, crypto key
+
+### Auth — public (`@polumeyv/lib/auth`, `@polumeyv/lib/auth/oauth2-client`, `@polumeyv/lib/auth/passkey-client`)
+- Branded types (`UserSub`, `Email`)
+- Schemas (`AuthPayload`, `OAuthClaims`, `OAuthResult`, `BaseUser`)
+- Tagged result classes (`OtpSession`, `InvalidCode`, `UserLocked`, `HasOidc`, `AuthenticatedUser`)
+- `makeOAuthClient` — HTTP client for downstream apps to talk to a host auth server
+- `makeAccessTokenVerifier` — JWKS-backed access-token verifier
+
+### Public types (`@polumeyv/lib/public/types`, `@polumeyv/lib/public/types/db`, `@polumeyv/lib/public/s3`)
+Branded primitives + DB row types safe for both server and client bundles.
+
+## Composition
+
+Each consumer app builds its own runtime by combining layers:
 
 ```ts
-import { Config, Effect, Layer } from 'effect';
-import { Postgres, makePostgres } from '@polumeyv/utils/postgres';
-import { Redis, makeRedis } from '@polumeyv/utils/redis';
-import { Stripe, makeStripe, StripeWebhook, makeStripeWebhook } from '@polumeyv/utils/stripe';
-import { Ses, makeSes } from '@polumeyv/utils/ses';
+import { Effect, Layer, ManagedRuntime } from 'effect';
+import { Postgres, makePostgres, Redis, makeRedis, SessionService, Stripe, makeStripe } from '@polumeyv/lib/server';
+import {
+  AuthConfig, makeAuthConfig,
+  OAuthProviderRegistry, OAuthAccountStore, OidcAuthFlow, OAuthTokenVault,
+} from '@polumeyv/lib/auth/server';
 
-// Scoped clients — Layer.scoped + Effect.flatMap
-const PostgresLive = Layer.scoped(Postgres, Effect.flatMap(Config.string('DATABASE_URL'), makePostgres));
-const RedisLive = Layer.scoped(Redis, Effect.flatMap(Config.string('REDIS_URL'), makeRedis));
+const Live = Layer.provideMerge(
+  Layer.mergeAll(
+    OAuthAccountStore.Default,
+    OidcAuthFlow.Default,
+    OAuthTokenVault.Default,
+    // ...your app services
+  ),
+  Layer.mergeAll(
+    Layer.scoped(Postgres, makePostgres(DATABASE_URL)),
+    Layer.scoped(Redis, makeRedis(REDIS_URL)),
+    SessionService.Default,
+    Layer.succeed(OAuthProviderRegistry, OAuthProviderRegistry.of(new Map([
+      ['google', { discoveryUrl: '...', clientId: '...', clientSecret: '...', redirectUri: '...' }],
+    ]))),
+    makeAuthConfig({ cryptoKey: CRYPTO_KEY }),
+  ),
+);
 
-// Synchronous clients — Layer.effect + Effect.map
-const StripeLive = Layer.effect(Stripe, Effect.map(Config.string('STRIPE_SECRET_KEY'), makeStripe));
-const StripeWebhookLive = Layer.effect(StripeWebhook, Effect.map(
-  Effect.all([Config.string('STRIPE_SECRET_KEY'), Config.string('STRIPE_WEBHOOK_SECRET')]),
-  ([sk, ws]) => makeStripeWebhook(sk, ws),
-));
-
-const SesLive = Layer.effect(Ses, Effect.flatMap(
-  Config.string('EMAIL_ENABLED').pipe(Config.map((v) => v === 'true')),
-  makeSes,
-));
-
-// Compose into your app runtime
-const InfraLive = Layer.mergeAll(PostgresLive, RedisLive, StripeLive, StripeWebhookLive, SesLive);
-```
-
-Then use them in your services:
-
-```ts
-const pg = yield* Postgres;
-const rows = yield* pg.use((sql) => sql`SELECT * FROM users WHERE id = ${id}`);
-
-const redis = yield* Redis;
-const value = yield* redis.use((c) => c.get('key'));
+export const Runtime = ManagedRuntime.make(Live);
 ```
