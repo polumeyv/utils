@@ -30,7 +30,7 @@ export class Stripe extends Context.Tag('Stripe')<Stripe, {
 }>() {}
 
 export const makeStripe = (secretKey: string, webhookSecret?: string) => {
-	const stripe = new StripeSDK(secretKey, { apiVersion: '2026-03-25.dahlia' });
+	const stripe = new StripeSDK(secretKey, { apiVersion: '2026-04-22.dahlia' });
 	return Stripe.of({
 		use: (fn) => Effect.tryPromise({ try: () => fn(stripe), catch: (e) => new StripeError({ cause: e }) }),
 		verify: (body, signature) =>
