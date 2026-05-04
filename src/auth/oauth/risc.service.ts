@@ -14,9 +14,12 @@ import { Context, Effect } from 'effect';
 import { Postgres } from '@polumeyv/lib/server';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { OAuthError } from '../errors';
+import { OAuthAccountStore } from './account-store';
 
 const RISC_DISCOVERY = 'https://accounts.google.com/.well-known/risc-configuration';
 const GOOGLE_ISSUER = 'https://accounts.google.com/';
+const EVENT_BASE = 'https://schemas.openid.net/secevent';
+const GOOGLE_PROVIDER = 'google';
 
 type RiscDiscovery = {
 	issuer: string;
@@ -51,6 +54,7 @@ export class RiscService extends Effect.Service<RiscService>()('RiscService', {
 	effect: Effect.gen(function* () {
 		const { audiences } = yield* RiscConfig;
 		const pg = yield* Postgres;
+		const store = yield* OAuthAccountStore;
 
 		// One-time fetch of the RISC discovery document + JWKS. jose caches JWKS
 		// responses internally and honors Cache-Control so we don't need to.
@@ -117,7 +121,43 @@ export class RiscService extends Effect.Service<RiscService>()('RiscService', {
 				return Effect.map(recordJti(jti, first?.type ?? 'unknown', first?.subject.sub ?? null), (isNew) => (isNew ? events : ([] as RiscEvent[])));
 			});
 
-		return { process, verifyToken };
+		/**
+		 * Apply a list of decoded RISC events to OAuthAccountStore. Maps each
+		 * event type to its lifecycle action; logs and skips events that have
+		 * no actionable subject or are informational only.
+		 */
+		const dispatchToStore = (events: readonly RiscEvent[]) =>
+			Effect.forEach(
+				events,
+				(ev) => {
+					const googleSub = ev.subject.sub;
+					switch (ev.type) {
+						case `${EVENT_BASE}/oauth/event-type/tokens-revoked`:
+							return googleSub ? store.unlinkByProviderSubject(GOOGLE_PROVIDER, googleSub) : Effect.void;
+						case `${EVENT_BASE}/risc/event-type/sessions-revoked`:
+							return googleSub ? store.setStatus(GOOGLE_PROVIDER, googleSub, 'revoked', { clear: 'refresh' }) : Effect.void;
+						case `${EVENT_BASE}/risc/event-type/account-disabled`:
+							return googleSub && ev.reason === 'hijacking'
+								? store.setStatus(GOOGLE_PROVIDER, googleSub, 'hijacked', { clear: 'all' })
+								: Effect.logInfo(`[risc] account-disabled reason=${ev.reason ?? 'none'} sub=${googleSub}`);
+						case `${EVENT_BASE}/risc/event-type/account-enabled`:
+							return googleSub ? store.setStatus(GOOGLE_PROVIDER, googleSub, 'active') : Effect.void;
+						case `${EVENT_BASE}/risc/event-type/account-credential-change-required`:
+							return Effect.logInfo(`[risc] credential-change-required sub=${googleSub}`);
+						case `${EVENT_BASE}/risc/event-type/verification`:
+							return Effect.logInfo(`[risc] verification token received state=${ev.state ?? 'none'}`);
+						case `${EVENT_BASE}/oauth/event-type/token-revoked`:
+							// Per-token revocation — subject is a token identifier, not a user.
+							// Acting on this requires indexing tokens by prefix/hash. Log only.
+							return Effect.logInfo(`[risc] token-revoked (skipped — no token index) alg=${ev.subject.token_identifier_alg}`);
+						default:
+							return Effect.logInfo(`[risc] unhandled event type ${ev.type}`);
+					}
+				},
+				{ discard: true },
+			);
+
+		return { process, verifyToken, dispatchToStore };
 	}),
-	dependencies: [],
+	dependencies: [OAuthAccountStore.Default],
 }) {}
