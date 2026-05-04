@@ -9,6 +9,7 @@ export { OidcProviderRegistry } from './oauth/oidc.service';
 export { OAuthClaims, type OAuthResult } from './oauth/oidc.model';
 export { PasskeyRepository } from './passkey/passkey.repo';
 export { OidcService } from './oauth/oidc.service';
+export { OAuthAccountStore, type OAuthAccount, type OAuthAccountInput, type OAuthAccountStatus } from './oauth/account-store';
 export { RiscService, RiscConfig, type RiscEvent } from './oauth/risc.service';
 export { BaseUserRepository } from './user/user.repo';
 export { makeOAuthRequestSchema, validateOAuthRequest } from './oauth2/authorize';

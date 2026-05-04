@@ -3,9 +3,7 @@
  *
  * Caller supplies a passphrase (e.g. CRYPTO_KEY env); we derive a 32-byte key
  * via SHA-256 and encrypt each value with a fresh random IV. Output is a
- * tagged string `enc:v1:<base64 iv>.<base64 ciphertext+tag>` so that readers
- * can distinguish encrypted values from legacy plaintext during a rolling
- * migration and decrypt either shape transparently.
+ * tagged string `enc:v1:<base64 iv>.<base64 ciphertext+tag>`.
  */
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
@@ -25,10 +23,8 @@ export const encryptSecret = (plaintext: string, passphrase: string): string => 
 	return `${VERSION}${iv.toString('base64')}.${Buffer.concat([encrypted, tag]).toString('base64')}`;
 };
 
-/** Decrypts a value written by encryptSecret. Returns the input unchanged if it
- * lacks the version prefix (legacy plaintext), so callers can read both shapes. */
 export const decryptSecret = (value: string, passphrase: string): string => {
-	if (!value.startsWith(VERSION)) return value;
+	if (!value.startsWith(VERSION)) throw new Error('Missing encryption version prefix');
 	const [ivB64, payloadB64] = value.slice(VERSION.length).split('.');
 	if (!ivB64 || !payloadB64) throw new Error('Malformed encrypted value');
 	const key = deriveKey(passphrase);
@@ -40,7 +36,3 @@ export const decryptSecret = (value: string, passphrase: string): string => {
 	decipher.setAuthTag(tag);
 	return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
 };
-
-/** Convenience for nullable columns. */
-export const maybeEncrypt = (v: string | null | undefined, passphrase: string) => (v == null ? v : encryptSecret(v, passphrase));
-export const maybeDecrypt = (v: string | null | undefined, passphrase: string) => (v == null ? v : decryptSecret(v, passphrase));
