@@ -27,8 +27,5 @@ export const makeOAuthRequestSchema = (registry: ReadonlyMap<string, { readonly 
 /** Parse + validate an OAuth2 authorization request against the registered client registry. */
 export const validateOAuthRequest = (searchParams: URLSearchParams) =>
 	Effect.flatMap(OAuth2ClientRegistry, (registry) =>
-		Effect.mapError(
-			Schema.decodeUnknown(makeOAuthRequestSchema(registry))(Object.fromEntries(searchParams)),
-			(e) => new OAuth2RequestError({ message: ParseResult.TreeFormatter.formatErrorSync(e) }),
-		),
+		Effect.mapError(Schema.decodeUnknown(makeOAuthRequestSchema(registry))(Object.fromEntries(searchParams)), (e) => new OAuth2RequestError({ message: ParseResult.TreeFormatter.formatErrorSync(e) })),
 	);

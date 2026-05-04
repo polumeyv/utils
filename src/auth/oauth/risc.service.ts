@@ -114,10 +114,7 @@ export class RiscService extends Effect.Service<RiscService>()('RiscService', {
 				}));
 				// Record the whole set under a single jti; if dup, return [].
 				const first = events[0];
-				return Effect.map(
-					recordJti(jti, first?.type ?? 'unknown', first?.subject.sub ?? null),
-					(isNew) => (isNew ? events : ([] as RiscEvent[])),
-				);
+				return Effect.map(recordJti(jti, first?.type ?? 'unknown', first?.subject.sub ?? null), (isNew) => (isNew ? events : ([] as RiscEvent[])));
 			});
 
 		return { process, verifyToken };

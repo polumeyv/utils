@@ -50,8 +50,7 @@ export function makeOAuthClient({
 		exchangeCode: (code: string, codeVerifier: string, origin: string) =>
 			tokenRequest(new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: codeVerifier }), origin),
 
-		refreshTokens: (refreshToken: string, origin: string) =>
-			tokenRequest(new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }), origin),
+		refreshTokens: (refreshToken: string, origin: string) => tokenRequest(new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }), origin),
 
 		/** RFC 7009 token revocation — deletes the OAuth2 session on the auth server. */
 		revoke: (token: string) =>
@@ -61,8 +60,6 @@ export function makeOAuthClient({
 						method: 'POST',
 						headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 						body: new URLSearchParams({ token, client_id: clientId, client_secret: clientSecret }).toString(),
-					}).then((res) => {
-						if (!res.ok) throw new Error(`revoke failed: ${res.status}`);
 					}),
 				catch: (e) => new OAuthError({ cause: e, message: e instanceof Error ? e.message : 'Revoke request failed' }),
 			}),
